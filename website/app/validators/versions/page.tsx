@@ -1,51 +1,44 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import TimeAgo from 'javascript-time-ago'
+import en from 'javascript-time-ago/locale/en'
+import { GlacierGetSubnetToValidators, getValidatorFromDiscoveryAPI } from "../apis"
 
-interface ValidatorData {
-    nodeId: string
-    version: string
-    trackedSubnets: string[]
-    lastAttempted: number
-    lastSeenOnline: number
-    ip: string
-}
-
-type ValidatorDataWithoutIP = Omit<ValidatorData, 'ip'>
-
-async function getValidators(): Promise<ValidatorDataWithoutIP[]> {
-    'use server'
-
-    try {
-        const response = await fetch('https://validator-discovery-asia.fly.dev/')
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`)
-        }
-
-        const data: ValidatorData[] = await response.json()
-
-        const processedData = data.map((validator) => {
-            const { ip, version, ...rest } = validator
-            let versionString = version || 'Unknown'
-            if (version.includes('/')) {
-                versionString = version.split('/')[1]
-            }
-            return { version: versionString || 'Unknown', ...rest } as ValidatorDataWithoutIP
-        })
-
-        return processedData
-    } catch (error) {
-        console.error('Failed to fetch validators:', error)
-        return []
-    }
-}
+// Initialize TimeAgo with English locale
+TimeAgo.addDefaultLocale(en)
 
 export default async function OutdatedValidators() {
-    const validators = await getValidators()
+    // Get subnet to validators mapping from Glacier
+    const subnetToValidators = await GlacierGetSubnetToValidators()
 
-    // Find and sort all versions 
-    const allVersions = validators.map(v => v.version).filter(v => v !== 'Unknown')
+    // Create version lookup map: nodeId => version
+    const versionLookup = new Map<string, string>()
+    for (const validator of await getValidatorFromDiscoveryAPI()) {
+        versionLookup.set(validator.nodeId, validator.version)
+    }
+
+    // Build subnet data structure: subnet -> version -> count
+    const subnetData = new Map<string, Map<string, number>>()
+    let totalValidatorCount = 0
+
+    for (const [subnetId, nodeIds] of subnetToValidators) {
+        const versionCounts = new Map<string, number>()
+
+        for (const nodeId of nodeIds) {
+            const version = versionLookup.get(nodeId) || 'Unknown'
+            versionCounts.set(version, (versionCounts.get(version) || 0) + 1)
+            totalValidatorCount++
+        }
+
+        subnetData.set(subnetId, versionCounts)
+    }
+
+    const timeAgo = new TimeAgo('en-US')
+    const lastUpdated = 0
+
+    // Find and sort all versions
+    const allVersions = Array.from(versionLookup.values()).filter(v => v !== 'Unknown')
     const sortedVersions = allVersions.length > 0
         ? [...new Set(allVersions)].sort((a, b) => b.localeCompare(a, undefined, { numeric: true, sensitivity: 'base' }))
         : []
@@ -63,28 +56,10 @@ export default async function OutdatedValidators() {
         }
     }
 
-    // Group validators by subnet, then by version within each subnet
-    const subnetData = new Map<string, Map<string, ValidatorDataWithoutIP[]>>()
-
-    validators.forEach(validator => {
-        validator.trackedSubnets.forEach(subnetId => {
-            if (!subnetData.has(subnetId)) {
-                subnetData.set(subnetId, new Map())
-            }
-
-            const subnetVersions = subnetData.get(subnetId)!
-            if (!subnetVersions.has(validator.version)) {
-                subnetVersions.set(validator.version, [])
-            }
-
-            subnetVersions.get(validator.version)!.push(validator)
-        })
-    })
-
     // Convert to array and sort by total validators (descending)
     const subnets = Array.from(subnetData.entries())
         .map(([subnetId, versions]) => {
-            const totalValidators = Array.from(versions.values()).reduce((sum, validators) => sum + validators.length, 0)
+            const totalValidators = Array.from(versions.values()).reduce((sum, count) => sum + count, 0)
             return { subnetId, versions, totalValidators }
         })
         .sort((a, b) => b.totalValidators - a.totalValidators)
@@ -94,7 +69,7 @@ export default async function OutdatedValidators() {
             <div>
                 <h1 className="text-3xl font-bold mb-2">Validator Versions by Subnet</h1>
                 <p className="text-muted-foreground mb-4">
-                    Monitoring {subnets.length} subnets • {validators.length} validators total • Latest: {latestVersion}
+                    Monitoring {subnets.length} subnets • {totalValidatorCount} validators total • Latest: {latestVersion} • Last updated {lastUpdated === 0 ? 'Never' : timeAgo.format(lastUpdated)}
                 </p>
                 <div className="flex gap-2 text-xs">
                     <div className="flex items-center gap-1">
@@ -132,8 +107,7 @@ export default async function OutdatedValidators() {
                                         if (b[0] === 'Unknown') return -1
                                         return b[0].localeCompare(a[0], undefined, { numeric: true, sensitivity: 'base' })
                                     })
-                                    .map(([version, validators]) => {
-                                        const count = validators.length
+                                    .map(([version, count]) => {
                                         const percentage = Math.round((count / totalValidators) * 100)
                                         const isLatest = version === latestVersion
                                         const style = getVersionStyle(version)
