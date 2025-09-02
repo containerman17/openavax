@@ -16,8 +16,12 @@ export default async function OutdatedValidators() {
 
     // Create version lookup map: nodeId => version
     const versionLookup = new Map<string, string>()
+    let lastUpdated = 0
     for (const validator of await getValidatorFromDiscoveryAPI()) {
         versionLookup.set(validator.nodeId, validator.version)
+        if (validator.lastSeenOnline > lastUpdated) {
+            lastUpdated = validator.lastSeenOnline
+        }
     }
 
     // Build subnet data structure: subnet -> version -> count
@@ -37,7 +41,6 @@ export default async function OutdatedValidators() {
     }
 
     const timeAgo = new TimeAgo('en-US')
-
     // Find and sort all versions
     const allVersions = Array.from(versionLookup.values()).filter(v => v !== 'Unknown')
     const sortedVersions = allVersions.length > 0
@@ -73,7 +76,7 @@ export default async function OutdatedValidators() {
             <div>
                 <h1 className="text-3xl font-bold mb-2">Validator Versions by Subnet</h1>
                 <p className="text-muted-foreground mb-4">
-                    Monitoring {subnets.length} subnets • {totalValidatorCount} validators total • Latest: {latestVersion}
+                    Monitoring {subnets.length} subnets • {totalValidatorCount} validators total • Latest: {latestVersion} • Last updated {lastUpdated === 0 ? 'Never' : timeAgo.format(lastUpdated)}
                 </p>
                 <div className="flex gap-2 text-xs flex-wrap">
                     <div className="flex items-center gap-1">
