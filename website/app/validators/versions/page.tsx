@@ -7,6 +7,9 @@ import { GlacierGetSubnetToValidators, getValidatorFromDiscoveryAPI, getBlockcha
 // Initialize TimeAgo with English locale
 TimeAgo.addDefaultLocale(en)
 
+// Force dynamic rendering - this page fetches fresh data on every request
+export const dynamic = 'force-dynamic'
+
 export default async function OutdatedValidators() {
     // Get subnet to validators mapping from Glacier
     const subnetToValidators = await GlacierGetSubnetToValidators()

@@ -15,3 +15,7 @@ primary_region = 'fra'
   memory = '1gb'
   cpu_kind = 'shared'
   cpus = 1
+
+[mounts]
+  source = "nextjs_cache"
+  destination = "/app/.next/cache"
