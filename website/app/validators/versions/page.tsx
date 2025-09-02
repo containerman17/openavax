@@ -1,9 +1,8 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import TimeAgo from 'javascript-time-ago'
 import en from 'javascript-time-ago/locale/en'
-import { GlacierGetSubnetToValidators, getValidatorFromDiscoveryAPI } from "../apis"
+import { GlacierGetSubnetToValidators, getValidatorFromDiscoveryAPI, getBlockchainNamesMapping } from "../apis"
 
 // Initialize TimeAgo with English locale
 TimeAgo.addDefaultLocale(en)
@@ -11,6 +10,9 @@ TimeAgo.addDefaultLocale(en)
 export default async function OutdatedValidators() {
     // Get subnet to validators mapping from Glacier
     const subnetToValidators = await GlacierGetSubnetToValidators()
+
+    // Get blockchain names mapping
+    const blockchainNamesMapping = await getBlockchainNamesMapping()
 
     // Create version lookup map: nodeId => version
     const versionLookup = new Map<string, string>()
@@ -46,13 +48,16 @@ export default async function OutdatedValidators() {
 
     // Version color mapping
     const getVersionStyle = (version: string) => {
-        if (version === 'Unknown') return { variant: 'destructive' as const, className: 'bg-red-500' }
+        if (version === 'Unknown') return { color: 'red-600' }
 
         const versionIndex = sortedVersions.indexOf(version)
         switch (versionIndex) {
-            case 0: return { variant: 'default' as const, className: 'bg-green-500 hover:bg-green-600' }  // Latest
-            case 1: return { variant: 'secondary' as const, className: 'bg-blue-500 hover:bg-blue-600 text-white' }  // 1 behind
-            default: return { variant: 'destructive' as const, className: 'bg-red-500' }  // 3+ behind
+            case 0: return { color: 'green-500' }    // Latest
+            case 1: return { color: 'cyan-500' }     // 1 behind  
+            case 2: return { color: 'blue-500' }     // 2 behind
+            case 3: return { color: 'yellow-500' }   // 3 behind
+            case 4: return { color: 'orange-500' }   // 4 behind
+            default: return { color: 'red-500' }     // 5+ behind (6+ versions behind)
         }
     }
 
@@ -71,80 +76,99 @@ export default async function OutdatedValidators() {
                 <p className="text-muted-foreground mb-4">
                     Monitoring {subnets.length} subnets • {totalValidatorCount} validators total • Latest: {latestVersion} • Last updated {lastUpdated === 0 ? 'Never' : timeAgo.format(lastUpdated)}
                 </p>
-                <div className="flex gap-2 text-xs">
+                <div className="flex gap-2 text-xs flex-wrap">
                     <div className="flex items-center gap-1">
                         <div className="w-3 h-3 bg-green-500 rounded"></div>
                         <span>Latest</span>
                     </div>
                     <div className="flex items-center gap-1">
-                        <div className="w-3 h-3 bg-blue-500 rounded"></div>
+                        <div className="w-3 h-3 bg-cyan-500 rounded"></div>
                         <span>1 behind</span>
                     </div>
                     <div className="flex items-center gap-1">
+                        <div className="w-3 h-3 bg-blue-500 rounded"></div>
+                        <span>2 behind</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                        <div className="w-3 h-3 bg-yellow-500 rounded"></div>
+                        <span>3 behind</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                        <div className="w-3 h-3 bg-orange-500 rounded"></div>
+                        <span>4 behind</span>
+                    </div>
+                    <div className="flex items-center gap-1">
                         <div className="w-3 h-3 bg-red-500 rounded"></div>
-                        <span>2+ behind / Unknown</span>
+                        <span>5+ behind</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                        <div className="w-3 h-3 bg-red-600 rounded"></div>
+                        <span>Unknown</span>
                     </div>
                 </div>
             </div>
 
             <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-                {subnets.map(({ subnetId, versions, totalValidators }) => (
-                    <Card key={subnetId}>
-                        <CardHeader className="pb-4">
-                            <CardTitle className="text-lg font-mono text-sm">
-                                {subnetId}
-                            </CardTitle>
-                            <CardDescription>
-                                {totalValidators} validators total
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="space-y-2">
-                                {Array.from(versions.entries())
-                                    .sort((a, b) => {
-                                        // Sort by version number descending (1.13.5 -> 1.13.4 -> etc.)
-                                        if (a[0] === 'Unknown') return 1
-                                        if (b[0] === 'Unknown') return -1
-                                        return b[0].localeCompare(a[0], undefined, { numeric: true, sensitivity: 'base' })
-                                    })
-                                    .map(([version, count]) => {
-                                        const percentage = Math.round((count / totalValidators) * 100)
-                                        const isLatest = version === latestVersion
-                                        const style = getVersionStyle(version)
+                {subnets.map(({ subnetId, versions, totalValidators }) => {
+                    const blockchainName = blockchainNamesMapping.get(subnetId) || 'Unknown Blockchain'
+                    return (
+                        <Card key={subnetId}>
+                            <CardHeader className="pb-4">
+                                <CardTitle className="text-lg">
+                                    {blockchainName}
+                                </CardTitle>
+                                <CardDescription className="font-mono text-xs">
+                                    {subnetId}
+                                </CardDescription>
+                                <CardDescription>
+                                    {totalValidators} validators total
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="space-y-2">
+                                    {Array.from(versions.entries())
+                                        .sort((a, b) => {
+                                            // Sort by version number descending (1.13.5 -> 1.13.4 -> etc.)
+                                            if (a[0] === 'Unknown') return 1
+                                            if (b[0] === 'Unknown') return -1
+                                            return b[0].localeCompare(a[0], undefined, { numeric: true, sensitivity: 'base' })
+                                        })
+                                        .map(([version, count]) => {
+                                            const percentage = Math.round((count / totalValidators) * 100)
+                                            const isLatest = version === latestVersion
+                                            const style = getVersionStyle(version)
 
-                                        return (
-                                            <div key={version} className="space-y-1">
-                                                <div className="flex items-center justify-between text-xs">
-                                                    <div className="flex items-center gap-2">
-                                                        <Badge
-                                                            variant={style.variant}
-                                                            className={`font-mono text-xs ${style.className}`}
-                                                        >
-                                                            {version}
-                                                        </Badge>
-                                                        {isLatest && (
-                                                            <span className="text-xs text-green-600 font-medium">latest</span>
-                                                        )}
+                                            return (
+                                                <div key={version} className="space-y-1">
+                                                    <div className="flex items-center justify-between text-xs">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-mono text-xs">
+                                                                {version}
+                                                            </span>
+                                                            {isLatest && (
+                                                                <span className="text-xs text-green-600 font-medium">latest</span>
+                                                            )}
+                                                        </div>
+                                                        <div className="font-semibold">
+                                                            {count} ({percentage}%)
+                                                        </div>
                                                     </div>
-                                                    <div className="font-semibold">
-                                                        {count} ({percentage}%)
-                                                    </div>
-                                                </div>
-                                                <div className="relative">
-                                                    <div className="w-full bg-muted h-2 rounded-full overflow-hidden">
-                                                        <div
-                                                            className={`h-full transition-all duration-300 ${style.className.replace('hover:bg-', 'bg-')}`}
-                                                            style={{ width: `${percentage}%` }}
-                                                        />
+                                                    <div className="relative">
+                                                        <div className="w-full bg-muted h-2 rounded-full overflow-hidden">
+                                                            <div
+                                                                className={`h-full transition-all duration-300 bg-${style.color}`}
+                                                                style={{ width: `${percentage}%` }}
+                                                            />
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        )
-                                    })}
-                            </div>
-                        </CardContent>
-                    </Card>
-                ))}
+                                            )
+                                        })}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )
+                })}
             </div>
 
             {subnets.length === 0 && (

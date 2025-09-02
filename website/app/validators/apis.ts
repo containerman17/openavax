@@ -1,6 +1,6 @@
 'use server'
 
-import { GlacierGetL1Validators } from "./glacier"
+import { GlacierGetBlockchains, GlacierGetL1Validators } from "./glacier"
 
 export interface ValidatorData {
     nodeId: string
@@ -45,4 +45,13 @@ export async function GlacierGetSubnetToValidators(): Promise<Map<string, string
         subnetToValidators.get(validator.subnetId)!.push(validator.nodeId)
     }
     return subnetToValidators
+}
+
+export async function getBlockchainNamesMapping(): Promise<Map<string, string>> {
+    const blockchains = await GlacierGetBlockchains()
+    const blockchainNamesMapping = new Map<string, string>()
+    for (const blockchain of blockchains) {
+        blockchainNamesMapping.set(blockchain.subnetId, blockchain.blockchainName)
+    }
+    return blockchainNamesMapping
 }

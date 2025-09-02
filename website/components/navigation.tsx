@@ -22,30 +22,10 @@ export function Navigation() {
                                 <li>
                                     <NavigationMenuLink asChild>
                                         <Link
-                                            href="#"
+                                            href="/validators/versions"
                                             className="block select-none rounded-md p-2 text-sm hover:bg-accent hover:text-accent-foreground"
                                         >
-                                            Dummy Item 1
-                                        </Link>
-                                    </NavigationMenuLink>
-                                </li>
-                                <li>
-                                    <NavigationMenuLink asChild>
-                                        <Link
-                                            href="#"
-                                            className="block select-none rounded-md p-2 text-sm hover:bg-accent hover:text-accent-foreground"
-                                        >
-                                            Dummy Item 2
-                                        </Link>
-                                    </NavigationMenuLink>
-                                </li>
-                                <li>
-                                    <NavigationMenuLink asChild>
-                                        <Link
-                                            href="#"
-                                            className="block select-none rounded-md p-2 text-sm hover:bg-accent hover:text-accent-foreground"
-                                        >
-                                            Dummy Item 3
+                                            Validator Versions
                                         </Link>
                                     </NavigationMenuLink>
                                 </li>

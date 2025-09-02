@@ -30,6 +30,7 @@ export interface GlacierL1ValidatorsResponse {
 }
 
 
+
 export async function GlacierGetL1Validators(): Promise<GlacierL1Validator[]> {
     const allValidators: GlacierL1Validator[] = []
     let nextPageToken: string | undefined = undefined
@@ -53,5 +54,46 @@ export async function GlacierGetL1Validators(): Promise<GlacierL1Validator[]> {
     } while (nextPageToken)
 
     return allValidators
+}
+
+
+export interface GlacierBlockchain {
+    createBlockTimestamp: number
+    createBlockNumber: string
+    blockchainId: string
+    vmId: string
+    subnetId: string
+    blockchainName: string
+    evmChainId: number
+}
+
+export interface GlacierBlockchainsResponse {
+    blockchains: GlacierBlockchain[]
+    nextPageToken?: string
+}
+
+export async function GlacierGetBlockchains(pageSize: number = 100): Promise<GlacierBlockchain[]> {
+    const allBlockchains: GlacierBlockchain[] = []
+    let nextPageToken: string | undefined = undefined
+
+    do {
+        const url = nextPageToken
+            ? `https://glacier-api.avax.network/v1/networks/mainnet/blockchains?pageSize=${pageSize}&pageToken=${nextPageToken}`
+            : `https://glacier-api.avax.network/v1/networks/mainnet/blockchains?pageSize=${pageSize}`
+
+        const response = await fetch(url, { next: { revalidate: 60 * 60 } })//cache for an hour
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`)
+        }
+
+        const data: GlacierBlockchainsResponse = await response.json()
+
+        allBlockchains.push(...data.blockchains)
+        nextPageToken = data.nextPageToken
+
+    } while (nextPageToken)
+
+    return allBlockchains
 }
 
