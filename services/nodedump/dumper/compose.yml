@@ -1,0 +1,12 @@
+services:
+  dumper:
+    build:
+      context: .
+      dockerfile: Dockerfile.dumper
+    volumes:
+      - ./data/:/root/.avalanchego/
+    environment:
+      - AVAGO_PARTIAL_SYNC_PRIMARY_NETWORK=true
+      - AVAGO_DB_TYPE=pebbledb
+    ports:
+      - "127.0.0.1:9650:9650"
