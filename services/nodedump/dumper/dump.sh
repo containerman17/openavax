@@ -10,7 +10,7 @@ set -e
 DUMP_FILE="dump-$(date +%Y%m%d-%H%M%S).tar.zst"
 
 docker compose stop 
-tar -cf - data | zstd > "$DUMP_FILE"
+tar -cf - --exclude=data/staking data | zstd > "$DUMP_FILE"
 rclone copy "$DUMP_FILE" ":s3:/$R2_BUCKET/" --s3-provider=Cloudflare --s3-access-key-id="$R2_ACCESS_KEY_ID" --s3-secret-access-key="$R2_SECRET_ACCESS_KEY" --s3-endpoint="$R2_ENDPOINT"
 echo "{\"filename\":\"$DUMP_FILE\"}" > manifest.json
 rclone copy "manifest.json" ":s3:/$R2_BUCKET/" --s3-provider=Cloudflare --s3-access-key-id="$R2_ACCESS_KEY_ID" --s3-secret-access-key="$R2_SECRET_ACCESS_KEY" --s3-endpoint="$R2_ENDPOINT"
